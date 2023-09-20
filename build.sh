@@ -5,19 +5,19 @@
 # This script requires the OS X SDK and the Clang/LLVM compiler.
 #
 
-VERSION=1.4
+VERSION=1.5
 
 pushd "${0%/*}" &>/dev/null
 
 source tools/tools.sh
 
 if [ $SDK_VERSION ]; then
-  echo 'SDK VERSION set in environment variable:' $SDK_VERSION
+  echo "SDK VERSION set in environment variable: $SDK_VERSION"
 else
   guess_sdk_version
   SDK_VERSION=$guess_sdk_version_result
 fi
-verify_sdk_version $SDK_VERSION
+set_and_verify_sdk_path
 
 case $SDK_VERSION in
   10.4*|10.5*)
@@ -40,17 +40,20 @@ case $SDK_VERSION in
   10.14*) TARGET=darwin18; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=0; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
   10.15*) TARGET=darwin19; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=0; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
   10.16*) TARGET=darwin20; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
-  11.0*)  TARGET=darwin20.1; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
+  11|11.0*)  TARGET=darwin20.1; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
   11.1*)  TARGET=darwin20.2; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
   11.2*)  TARGET=darwin20.3; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
   11.3*)  TARGET=darwin20.4; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
-  12.0*)  TARGET=darwin21.1; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
+  12|12.0*)  TARGET=darwin21.1; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
   12.1*)  TARGET=darwin21.2; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
   12.2*)  TARGET=darwin21.3; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
   12.3*)  TARGET=darwin21.4; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
   12.4*)  TARGET=darwin21.5; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
-  13.0*)  TARGET=darwin22; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
+  13|13.0*)  TARGET=darwin22; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
   13.1*)  TARGET=darwin22.2; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
+  13.2*)  TARGET=darwin22.3; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
+  13.3*)  TARGET=darwin22.4; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.9;  ;;
+  14|14.0*)  TARGET=darwin23; X86_64H_SUPPORTED=1; I386_SUPPORTED=0; ARM_SUPPORTED=1; NEED_TAPI_SUPPORT=1; OSX_VERSION_MIN_INT=10.13;  ;;
  *) echo "Unsupported SDK"; exit 1 ;;
 esac
 
@@ -106,7 +109,7 @@ build_xar
 ## Apple TAPI Library ##
 
 if [ $NEED_TAPI_SUPPORT -eq 1 ]; then
-  get_sources https://github.com/tpoechtrager/apple-libtapi.git 1100.0.11
+  get_sources https://github.com/tpoechtrager/apple-libtapi.git 1300.6.5
 
   if [ $f_res -eq 1 ]; then
     pushd $CURRENT_BUILD_PROJECT_NAME &>/dev/null
@@ -119,8 +122,8 @@ fi
 
 ## cctools and ld64 ##
 
-CCTOOLS_VERSION=973.0.1
-LINKER_VERSION=609
+CCTOOLS_VERSION=986
+LINKER_VERSION=711
 
 get_sources \
   https://github.com/tpoechtrager/cctools-port.git \
@@ -182,7 +185,6 @@ popd &>/dev/null
 
 ## Extract SDK and move it to $SDK_DIR ##
 
-SDK=$(ls $TARBALL_DIR/MacOSX$SDK_VERSION*)
 echo ""
 extract $SDK
 
@@ -193,9 +195,17 @@ else
   mv -f *OSX*$SDK_VERSION*sdk* $SDK_DIR
 fi
 
+if [ ! -d "$SDK_DIR/MacOSX$SDK_VERSION.sdk" ]; then
+  echo "Broken SDK! '$SDK_DIR/MacOSX$SDK_VERSION.sdk' does not exist!"
+  exit 1
+fi
+
 ## Fix broken SDKs ##
 
-pushd $SDK_DIR/MacOSX$SDK_VERSION.sdk &>/dev/null
+pushd $SDK_DIR/MacOSX$SDK_VERSION*.sdk &>/dev/null
+# Remove troublesome libc++ IWYU mapping file that may cause compiler errors
+# https://github.com/include-what-you-use/include-what-you-use/blob/master/docs/IWYUMappings.md
+rm -f usr/include/c++/v1/libcxx.imp
 set +e
 files=$(echo $BASE_DIR/oclang/quirks/*.h)
 for file in $files; do
@@ -274,7 +284,6 @@ if [ $ARM_SUPPORTED -eq 1 ]; then
   create_symlink osxcross-cmake "$TARGET_DIR/bin/arm64e-apple-$TARGET-cmake"
 fi
 
-
 ## Compiler test ##
 
 unset MACOSX_DEPLOYMENT_TARGET
@@ -292,9 +301,8 @@ if [ $(osxcross-cmp $SDK_VERSION ">=" 10.7) -eq 1 ]; then
     if [ $(osxcross-cmp $SDK_VERSION ">=" 10.7) -eq 1 ]; then
     if [ $(osxcross-cmp $SDK_VERSION "<=" 10.12) -eq 1 ]; then
       # https://github.com/tpoechtrager/osxcross/issues/171
-      set +e
-      patch -N -p1 -r /dev/null < $PATCH_DIR/libcxx__hash_table.patch
-      set -e
+      echo "SDK needs patching for libc++ hash table issue ..."
+      patch -N -p1 -r /dev/null < $PATCH_DIR/libcxx__hash_table.patch || true
     fi
     fi
   fi
@@ -302,9 +310,7 @@ if [ $(osxcross-cmp $SDK_VERSION ">=" 10.7) -eq 1 ]; then
     if [ $(osxcross-cmp $SDK_VERSION "==" 10.15) -eq 1 ]; then
       # 10.15 comes with a broken Availability.h header file
       # which breaks building GCC
-      set +e
-      cat $PATCH_DIR/gcc_availability.h >> usr/include/Availability.h
-      set -e
+      cat $PATCH_DIR/gcc_availability.h >> usr/include/Availability.h || true
     fi
   fi
   popd &>/dev/null
@@ -314,6 +320,22 @@ if [ $(osxcross-cmp $SDK_VERSION ">=" 10.7) -eq 1 ]; then
   fi
   test_compiler_cxx11 x86_64-apple-$TARGET-clang++ $BASE_DIR/oclang/test_libcxx.cpp
   echo ""
+fi
+
+if [ $(osxcross-cmp $SDK_VERSION ">=" 13.3) -eq 1 ]; then
+  CLANG_VERSION=$(echo "__clang_major__ __clang_minor__ __clang_patchlevel__" | \
+                  xcrun clang -xc -E - | tail -n1 | tr ' ' '.')
+
+  if [ $(osxcross-cmp $CLANG_VERSION ">=" 13.0) -eq 1 ]; then
+    echo "Performing complex c++20 test ..."
+    test_compiler_cxx2b x86_64-apple-$TARGET-clang++ $BASE_DIR/oclang/test_libcxx_complex.cpp
+    if [ $ARM_SUPPORTED -eq 1 ]; then
+      test_compiler_cxx2b arm64-apple-$TARGET-clang++ $BASE_DIR/oclang/test_libcxx_complex.cpp
+    fi
+    echo ""
+  else
+    echo "Skipping complex c++20 test. Requires clang >= 13.0."
+  fi
 fi
 
 if [ $I386_SUPPORTED -eq 1 ]; then

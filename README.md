@@ -12,6 +12,8 @@ and is able to **target** `arm64`, `arm64e`, `x86_64`, `x86_64h` and `i386`.
 `arm64` requires macOS 11.0 SDK (or later).  
 `arm64e` [requires a recent Apple clang compiler.](https://github.com/apple/llvm-project)
 
+[There is also a `ppc` test branch that has recently seen some daylight.](https://github.com/tpoechtrager/osxcross/blob/ppc-test/README.PPC-GCC-5.5.0-SDK-10.5.md)
+
 ### HOW DOES IT WORK? ###
 
 For cross-compiling for macOS you need
@@ -89,7 +91,8 @@ To build and install your own `clang` from a recent source tree, using `gcc`,
 run:
 
 ```shell
-    ./build_clang.sh
+    ./build_clang.sh # Builds a mainline version of Clang
+    ./build_apple_clang.sh # Builds Apple's version of Clang
 ```
 
 This installs `clang` into `/usr/local`.  If you want to install somewhere
@@ -187,7 +190,7 @@ Tools for Xcode.
    OSXCross.
 
 \*\*  
--- Xcode up to 12.5 Beta 3 is known to work.  
+-- Xcode up to 15 Beta 6 is known to work.  
 -- Use Firefox if you have problems signing in.
 
 \*\*\*  
